@@ -1,6 +1,6 @@
 # Workers KV backup
 
-Copy the content of a Workers KV locally.
+Copy the content of a Workers KV namespace locally.
 
 ## Usage
 

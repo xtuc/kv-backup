@@ -2,6 +2,7 @@ import argparse
 import requests
 import os
 import urllib.parse
+from multiprocessing import Pool, TimeoutError
 
 
 my_parser = argparse.ArgumentParser(description='List the content of a folder')
@@ -14,16 +15,20 @@ my_parser.add_argument('--dest', type=str, help='Dest backup directory', default
 args = my_parser.parse_args()
 
 
-def get(name):
+def get(item):
+    name = item['name']
+    print("downloading %s" % name)
     headers = {'Authorization': 'Bearer %s' % args.api_token}
     url = 'https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s'\
         % (args.cf_account_id, args.kv_namespace_id, urllib.parse.quote(name).replace("/", "%2F"))
     r = requests.get(url, headers=headers)
     assert r.status_code == 200
-    f = open("%s/%s" % (args.dest, name), "wb+")
+    dest = "%s/%s" % (args.dest, name)
+    if not os.path.exists(os.path.dirname(dest)):
+        os.makedirs(os.path.dirname(dest))
+    f = open(dest, "wb+")
     f.write(r.content)
     f.close()
-    print(name)
 
 
 def main():
@@ -39,6 +44,8 @@ def main():
     if not os.path.exists(args.dest):
         os.makedirs(args.dest)
 
+    pool = Pool(processes=4)
+
     while True:
         headers = {'Authorization': 'Bearer %s' % args.api_token}
         url = 'https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?&cursor=%s'\
@@ -48,13 +55,16 @@ def main():
 
         d = r.json()
         print("fetched %d keys" % len(d['result']))
-        for item in d['result']:
-            get(item["name"])
+
+        pool.map(get, d['result'])
 
         if d["result_info"]["cursor"]:
             cursor = d["result_info"]["cursor"]
         else:
             break
+
+    pool.close()
+    pool.terminate()
 
 
 main()
