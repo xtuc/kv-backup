@@ -17,13 +17,16 @@ args = my_parser.parse_args()
 
 def get(item):
     name = item['name']
+    dest = "%s/%s" % (args.dest, name)
+    if os.path.exists(dest):
+        print("%s already exists; skipping." % name)
+        return
     print("downloading %s" % name)
     headers = {'Authorization': 'Bearer %s' % args.api_token}
     url = 'https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values/%s'\
         % (args.cf_account_id, args.kv_namespace_id, urllib.parse.quote(name).replace("/", "%2F"))
     r = requests.get(url, headers=headers)
     assert r.status_code == 200
-    dest = "%s/%s" % (args.dest, name)
     if not os.path.exists(os.path.dirname(dest)):
         os.makedirs(os.path.dirname(dest))
     f = open(dest, "wb+")
